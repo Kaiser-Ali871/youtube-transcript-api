@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.proxies import GenericProxyConfig
 from urllib.parse import urlparse, parse_qs
+import os
 import re
 
 app = Flask(__name__)
@@ -12,7 +14,6 @@ def extract_video_id(url):
     """
 
     parsed_url = urlparse(url)
-
     hostname = parsed_url.hostname
 
     # Standard YouTube URL:
@@ -90,10 +91,26 @@ def get_transcript():
         }), 400
 
     try:
-        # Create YouTubeTranscriptApi object
-        api = YouTubeTranscriptApi()
+        # Check whether a proxy has been configured.
+        proxy_url = os.environ.get("PROXY_URL")
 
-        # Fetch transcript using the current API
+        if proxy_url:
+            # Use the proxy for requests to YouTube.
+            proxy_config = GenericProxyConfig(
+                http_url=proxy_url,
+                https_url=proxy_url
+            )
+
+            api = YouTubeTranscriptApi(
+                proxy_config=proxy_config
+            )
+
+        else:
+            # No proxy configured.
+            # This allows the API to work normally locally.
+            api = YouTubeTranscriptApi()
+
+        # Fetch transcript
         transcript = api.fetch(video_id)
 
         # Convert transcript snippets into one text string
